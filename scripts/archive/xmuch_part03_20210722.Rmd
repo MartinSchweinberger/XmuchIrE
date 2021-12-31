@@ -1,0 +1,51 @@
+---
+title: "X-much CXN in IrE - Part 2: Data processing"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on the use of the X-much construction in Irish English. 
+
+This part of the analysis performs the data processing and extracting examples of the X-much construction.
+
+# Session preparation
+
+cleaning the workspace, loading packages, setting options, and defining paths.
+
+```{r xmprep_2_01}
+# load packages
+library(tidyverse)
+library(here)
+library(readxl)
+library(flextable)
+library(quanteda)
+# setting options
+options(stringsAsFactors = F)
+```
+
+load data
+
+```{r}
+xm <- read.delim(here::here("data", "kwics.txt"), sep = "\t")
+# inspect
+head(xm)
+```
+
+
+
+
+
+# Outro
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

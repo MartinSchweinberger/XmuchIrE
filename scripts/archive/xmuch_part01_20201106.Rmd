@@ -1,0 +1,50 @@
+---
+title: "X-much CXN in IrE - Part 1: Data processing"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on evaluating the reliability of the manual coding of the functions of dm like.
+
+
+In a first step, we prepare the session by cleaning the workspace, loading packages, setting options, and defining paths.
+
+```{r likeac_5_01}
+# clean workspace
+rm(list=ls(all=T))
+# load packages
+library(tidyverse)
+library(here)
+library(readxl)
+library(flextable)
+# setting options
+options(stringsAsFactors = F)
+# set paths
+cpath <- "D:\\Uni\\Korpora\\Original\\GloWbE\\Ireland\\Texts"
+wlppath <- "D:\\Uni\\Korpora\\Original\\GloWbE\\Ireland\\"
+```
+
+# Extarct examples for manual coding
+
+Extract sample and save it to disc
+
+```{r likeac_5_03, eval = F}
+dmlike_sample <- read.table(here("datatables", "dmlike_all_coded.txt"), sep = "\t", header=TRUE, quote = "", skipNul = T) %>%
+  sample_n(200) %>%
+  select(- LexicalIndecision, -Specification, -Modification, -Repair,-File, -Function, -DiscourseLike,
+  -Speaker, -Example_long, -Speaker_long, -CleanedUtterance_long)
+# inspect
+head(dmlike_sample)
+```
+
+
+***
+
+The END
+
+***
+

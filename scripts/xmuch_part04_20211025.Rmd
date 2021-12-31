@@ -1,0 +1,399 @@
+---
+title: "X-much CXN in IrE - Part 4: Processing controll corpus"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on the use of the X-much construction in Irish and Australian English. 
+
+This part of the analysis performs the data processing of the control corpus.
+
+# Session preparation
+
+cleaning the workspace, loading packages, setting options, and defining paths.
+
+```{r xmprep_2_01}
+# load packages
+library(tidyverse)
+library(here)
+library(readxl)
+library(flextable)
+library(quanteda)
+library(tidytext)
+# setting options
+options(stringsAsFactors = F)
+```
+
+## Load adta
+
+```{r load, message=F, warning=F}
+ccps  <- base::readRDS(file = here::here("data", "ccorpus.rda")) %>%
+  dplyr::mutate(docname = stringr::str_remove_all(paste0(file, "_", subfile), "/"))
+xmd <- base::readRDS(file = here::here("data/kwics", "xmd.rda"))
+xmdfiles <- unique(stringr::str_remove_all(xmd$docname, "\\..*"))
+```
+
+Remove files that are in the xmd data
+
+```{r filter, message=F, warning=F}
+ccps <- ccps %>%
+  dplyr::filter(!docname %in% xmdfiles) %>%
+  dplyr::mutate(variety = stringr::str_replace_all(docname, ".*_([a-z]{2,2})_.*", "\\1"))
+# inspect
+nrow(ccps)
+```
+
+## Extract adjectives, nouns, and verbs
+
+```{r adj, message=F, warning=F}
+# oz control
+cctxt_au <- ccps %>%
+  dplyr::filter(!docname %in% xmdfiles) %>%
+  dplyr::mutate(text = paste0(variety, "_", text)) %>%
+  dplyr::filter(stringr::str_detect(text, "^au")) %>%
+  dplyr::pull(text)
+# ie control
+cctxt_ie <- ccps %>%
+  dplyr::filter(!docname %in% xmdfiles) %>%
+  dplyr::mutate(text = paste0(variety, "_", text)) %>%
+  dplyr::filter(stringr::str_detect(text, "^ie")) %>%
+  dplyr::pull(text)
+# tok oz
+tokcc_au <- quanteda::tokens(cctxt_au, what = "fastestword") %>%
+  unlist() %>%
+  sample(50000)
+# tok ie
+tokcc_ie <- quanteda::tokens(cctxt_ie, what = "fastestword") %>%
+  unlist() %>%
+  sample(50000)
+# combine
+tokcc <-c(tokcc_au, tokcc_ie)
+# generate df
+tkdf <- tokcc %>%
+  as.data.frame() %>%
+  dplyr::mutate(variety = c(rep("au", length(tokcc_au)), rep("ie", length(tokcc_ie)))) %>%
+  dplyr::mutate(pos = stringr::str_remove_all(tokcc, ".*/"),
+                word = tolower(stringr::str_remove_all(tokcc, "/.*"))) %>%
+  dplyr::rename(full = colnames(.)[1]) %>%
+  dplyr::mutate(pos = stringr::str_remove_all(pos, "[0-9].*|@.*|_.*"),
+                pos = dplyr::case_when(pos == "vv" ~ pos,
+                                       pos == "jj" ~ pos,
+                                       pos == "nn" ~ pos,
+                                       TRUE ~ "other"))
+# inspect
+head(tkdf)
+```
+
+add emotionality
+
+```{r emo1, message=F, warning=F}
+# sentiments
+emo <- get_sentiments("nrc") %>%
+  dplyr::filter(sentiment == "positive"| sentiment == "negative")
+wordpos <- emo %>%
+  dplyr::filter(sentiment == "positive") %>%
+  dplyr::pull(word)
+wordneg <- emo %>%
+  dplyr::filter(sentiment == "negative") %>%
+  dplyr::pull(word)
+```
+
+
+```{r emo1, message=F, warning=F}
+cemodf <- tkdf %>%
+  dplyr::mutate(emo = dplyr::case_when(word %in% wordpos ~ "positive",
+                                       word %in% wordneg ~ "negative",
+                                       TRUE ~ "nonemotional")) %>%
+  dplyr::mutate(control = "control")
+# inspect
+head(cemodf)
+```
+
+# Words vs phrases
+
+
+```{r}
+phrasetb <- xmd %>%
+  dplyr::select(variety, element) %>%
+  dplyr::group_by(variety, element) %>%
+  dplyr::summarise(freq = n())
+# inspect
+phrasetb
+```
+
+```{r}
+phrase_x2 <- phrasetb %>%
+  tidyr::spread(element, freq) %>%
+  as.matrix()
+# add rownames
+rownames(phrase_x2) <- phrase_x2[, 1]
+phrase_x2 <- phrase_x2[, 2:3]
+# convert to numeric
+phrase_x2 <- t(apply(phrase_x2, 1, function(x){ 
+  x <- as.numeric(x) }))
+# add column names
+colnames(phrase_x2) <- names(table(phrasetb$element))
+# inspect
+phrase_x2
+```
+```{r}
+chisq.test(phrase_x2)
+```
+
+
+# Differences in emotionality
+
+```{r}
+xmdtb <- xmd %>%
+  dplyr::select(variety, x, type, emo) %>%
+  dplyr::rename(word = x,
+                pos = type) %>%
+  dplyr::mutate(control = "test",
+                emocat = ifelse(emo == "nonemotional", emo, "emotional"),
+                pos = dplyr::case_when(pos == "vv" ~ pos,
+                                       pos == "jj" ~ pos,
+                                       pos == "nn" ~ pos,
+                                       TRUE ~ "other"))
+# inspect
+head(xmdtb)
+```
+
+```{r}
+cemotb <- cemodf %>%
+  dplyr::mutate(emocat = ifelse(emo == "nonemotional", emo, "emotional"),
+                variety = ifelse(variety == "au", "Australia", "Ireland")) %>%
+  dplyr::select(-full) %>%
+  dplyr::relocate(variety, word)
+# inspect
+head(cemotb)
+```
+
+
+```{r}
+xmdj <- rbind(xmdtb,cemotb) 
+# inspect
+head(xmdj)
+```
+
+# Tabulation
+
+```{r tb}
+tb1 <-base::readRDS(file = here::here("tables", "tb1.rda")) %>%
+  dplyr::mutate(variety = stringr::str_replace_all(text, ".*_([a-z]{2,2})_.*", "\\1"),
+                variety = ifelse(variety == "au", "Australia", "Ireland")) %>%
+  dplyr::group_by(variety) %>%
+  dplyr::summarise(words = sum(words),
+                   texts = n())
+# inspect
+head(tb1)
+```
+
+
+```{r}
+xmdj %>%
+  dplyr::group_by(variety, control) %>%
+  dplyr::summarise(freq = n())
+```
+
+
+
+# Statistics
+
+# Emotionality
+
+## X2:  Emotionality vs Control
+
+RQ: Does the emotionality of adjectives in the test data (adjectives in the x-much construction) differ from the emotionality in the control data?
+
+```{r}
+emo_tb1 <- xmdj %>%
+  #dplyr::filter(pos == "jj") %>%
+  dplyr::group_by(emocat, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+head(emo_tb1)
+```
+
+Perform x2-test
+
+```{r}
+emo_x2 <- emo_tb1 %>%
+  tidyr::spread(control, freq) %>%
+  as.matrix()
+rn<- emo_x2[,1]
+emo_x2 = emo_x2[, 2:3]
+emo_x2 <- apply(emo_x2, 2, as.numeric)
+rownames(emo_x2) <- rn
+emo_x2
+# perform x2 test
+chisq.test(emo_x2)
+```
+
+The adjectives in the x-much construction are not more emotional compared to the adjectives in the control data.
+
+## CFA: Emotions vs Control
+
+RQ: Do the adjectives in the test data (adjectives in the x-much construction) differ from the emotionality in the control data when differentiating between positive, nonemotional, and negative emotional?
+
+```{r}
+emo_tb2 <- xmdj %>%
+  dplyr::filter(pos == "jj") %>%
+  dplyr::group_by(emo, pos, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+emo_tb2
+```
+
+Perform CFA
+
+```{r}
+library(cfa)
+configs <- emo_tb2 %>%
+  dplyr::select(control, pos, emo)
+counts = emo_tb2$freq
+cfa::cfa(configs, counts)
+```
+
+The adjectives in the x-much construction are significantly more negative-emotional compared to the adjectives in the control data.
+
+##  CFA: Emotions vs Variety
+
+```{r}
+emo_tb3 <- xmdj %>%
+  dplyr::filter(pos == "jj") %>%
+  dplyr::group_by(emo, variety, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+emo_tb3
+```
+
+```{r}
+configs <- emo_tb3 %>%
+  dplyr::select(variety, emo, control)
+counts = emo_tb3$freq
+cfa::cfa(configs, counts)
+```
+
+There are significantly more negative adjectives in the x-much construction in the Australian data after corrections compared to any other configuration.
+
+
+# Word Prefernces
+
+## CFA: Pos attracted to x-much vs control
+
+RQ: are certain pos significantly more common in the x-much construction compared to the control data?
+
+
+```{r}
+poscat_tb <- xmdj %>%
+  dplyr::group_by(pos, control) %>%
+  dplyr::summarise(freq = n())
+configs <- poscat_tb %>%
+  dplyr::select(control, pos)
+counts = poscat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+According to the CFA, jj, nn, and vv are significantly over-represented while other pos are significantly underrepresented.
+
+## CFA: Pos attracted to x-much vs variety
+
+RQ: are certain pos significantly more common in the x-much construction by variety?
+
+```{r}
+poscat_tb <- xmdj %>%
+  dplyr::group_by(pos, control, variety) %>%
+  dplyr::summarise(freq = n())
+configs <- poscat_tb %>%
+  dplyr::select(variety, pos)
+counts = poscat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+In Australian English jj, vv, and nn are significantly over-represented. In Irish English only other are under-represented.
+
+**Constructionalization more advanced in AusE**
+
+## CFA: words overrepresented in x-much
+
+RQ: Regardless of variety, are there words that are significantly attracted by the x-much construction?
+
+```{r}
+wordcat_tb <- xmdj %>%
+  dplyr::group_by(control, word) %>%
+  dplyr::mutate(freq = n()) %>%
+  dplyr::mutate(word = ifelse(freq < 2, "other", word)) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(word, control) %>%
+  dplyr::summarise(freq = n())
+configs <- wordcat_tb %>%
+  dplyr::select(control, word)
+counts = wordcat_tb$freq
+cfa::cfa(configs, counts)
+
+```
+
+```{r}
+r7 <- cfa::cfa(configs, counts)
+words <- r7$table %>%
+  as.data.frame() %>%
+  dplyr::filter(sig.z == T) %>%
+  dplyr::pull(label) %>%
+  stringr::str_remove_all("test ")
+words
+```
+
+Words that are significantly over-represented in the x-much construction: 
+
+## CFA: words overrepresented in x-much
+
+RQ: Do the words that are significantly attracted by the x-much construction differ across varieties?
+
+```{r}
+wordcat_tb <- xmdj %>%
+  dplyr::group_by(control, variety, word) %>%
+  dplyr::mutate(freq = n()) %>%
+  dplyr::mutate(word = ifelse(freq < 2, "other", word)) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(word, variety, control) %>%
+  dplyr::summarise(freq = n())
+configs <- wordcat_tb %>%
+  dplyr::select(control, variety, word)
+counts = wordcat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+```{r}
+r8 <- cfa::cfa(configs, counts)
+words <- r8$table %>%
+  as.data.frame() %>%
+  dplyr::filter(stringr::str_detect(label, "control", negate = TRUE),
+                sig.z == T) %>%
+  dplyr::pull(label) %>%
+  stringr::str_remove_all("test ")
+words
+```
+
+The words that are attracted to the x-much construction in Ireland are less negative compared to the words that are attracted to the x-much construction in Oz. Compare *excuses*, *coincidence*, or *agenda* (Ireland) to *jealous*, *paranoid*, *hypocrite*, *creepy*, *threatened*, or *entitled* (Australia).
+
+## Save data to disc{-}
+
+```{r}
+base::saveRDS(emodf, file = here::here("tables", "cc_emo.rda"))
+```
+
+
+# Outro
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

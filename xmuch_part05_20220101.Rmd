@@ -61,6 +61,13 @@ xmuch <- base::readRDS(file = here::here("data", "xmuch.rda"))
 head(xmuch, 10)
 ```
 
+Inspect structure of the data
+
+```{r}
+str(xmuch)
+```
+
+
 # Statistical Analysis
 
 ## Single vs Multiword

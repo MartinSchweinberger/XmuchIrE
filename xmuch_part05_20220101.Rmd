@@ -10,7 +10,7 @@ link-citations: yes
 
 This document focuses on the use of the X-much structure in Irish and Australian English. 
 
-This part of the analysis performs the data analysis. The data is processed using *tidyverse* package(s) [@tidyverse] and the statistical analysis uses \chi^2^-tests [see @cochran1952x2], configural frequency analysis [see @lienert1975cfa] using the *cfa* package [@cfa], and conditional inference trees using the *party* [@party] and *partykit* [@partykit] packages.
+This part of the analysis performs the data analysis. The data is processed using *tidyverse* package(s) [@tidyverse] and the statistical analysis uses \chi^2^-tests [see @cochran1952x2] and configural frequency analysis [see @lienert1975cfa] using the *cfa* package [@cfa]. Effect sizes are calculated using the *effectsize* package [@effectsize].
 
 # Session preparation
 
@@ -27,6 +27,7 @@ install.packages("cfa")
 install.packages("report")
 install.packages("party")
 install.packages("partykit")
+install.packages("effectsize")
 ```
 
 
@@ -47,6 +48,7 @@ library(cfa)
 library(vcd)
 library(party)
 library(partykit)
+library(effectsize)
 # setting options
 options(stringsAsFactors = F)
 ```
@@ -104,6 +106,8 @@ phrase_x2
 
 ```{r}
 chisq.test(phrase_x2)
+# effect size
+effectsize::effectsize(chisq.test(phrase_x2), type = "phi")
 ```
 
 
@@ -122,6 +126,50 @@ assocplot(phrase_x2)
 
 
 ## Emotionality
+
+tabulation
+
+
+```{r}
+emo_tab <- xmuch %>%
+  dplyr::group_by(variety, control, polarity) %>%
+  dplyr::summarise(Freq = n()) %>%
+  dplyr::group_by(variety, control) %>%
+  dplyr::mutate(total = sum(Freq)) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(Percent = round(Freq/total*100, 1),
+                Frequency = paste0(Freq, " (", Percent, ")")) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-Freq, -total, -Percent) %>%
+  tidyr::spread(polarity, Frequency)
+# inspect
+emo_tab
+```
+
+Calculate totals
+
+```{r}
+# au
+austot <- 19+20+930+80+51+9
+negau <- round(39/austot*100, 1)
+nonau <- round(1010/austot*100, 1)
+posau <- round(60/austot*100, 1)
+# ire
+iretot <- 29+6+919+26+52+1
+negire <- round(35/iretot*100, 1)
+nonire <- round(945/iretot*100, 1)
+posire <- round(53/iretot*100, 1)
+# results
+negau
+nonau
+posau
+negire
+nonire
+posire
+
+```
+
+
 
 ```{r}
 xmdtb <- xmuch %>%
@@ -152,7 +200,7 @@ xmdtb %>%
   dplyr::summarise(freq = n())
 ```
 
-### X2
+### X2 (wo variety)
 
 RQ: Does the emotionality of words in the test data (in the x-much construction) differ from the emotionality in the control data?
 
@@ -177,9 +225,11 @@ rownames(emo_x2) <- rn
 emo_x2
 # perform x2 test
 chisq.test(emo_x2)
+# effect size
+effectsize::effectsize(chisq.test(emo_x2), type = "phi")
 ```
 
-The words in the x-much construction are significantly more emotional compared to the words in the control data.
+The words in the x-much structure are significantly more emotional compared to the words in the control data.
 
 ```{r}
 # adapt column names
@@ -194,6 +244,50 @@ dev.off()
 assocplot(emo_x2)
 ```
 
+### X2 (vareity)
+
+
+RQ: Does the emotionality of words in the X-much structure in Australia differ from the emotionality of words in the X-much structure in Ireland?
+
+```{r}
+emo_tb2 <- xmuch %>%
+  dplyr::filter(control == "test") %>%
+  dplyr::group_by(emo, variety) %>%
+  dplyr::summarise(freq = n())
+# inspect
+head(emo_tb2)
+```
+
+
+Perform x2-test
+
+```{r}
+emo_x22 <- emo_tb2 %>%
+  tidyr::spread(variety, freq) %>%
+  as.matrix()
+rn<- emo_x22[,1]
+emo_x22 = emo_x22[, 2:3]
+emo_x22 <- apply(emo_x22, 2, as.numeric)
+rownames(emo_x22) <- rn
+emo_x22
+# perform x2 test
+chisq.test(emo_x22)
+# effect size
+effectsize::effectsize(chisq.test(emo_x22), type = "phi")
+```
+
+
+Australia and Ireland differ significantly with respect to the emotionality of words in the x-much structure.
+
+```{r}
+# open window
+png(here::here("images", "emo_var_assoc.png"), width = 500, height = 350)
+# generate plot
+assocplot(emo_x22)
+# close window
+dev.off() 
+assocplot(emo_x22)
+```
 
 ###  CFA
 
@@ -254,16 +348,8 @@ emo_mx
 
 
 
-* basic mosaic plot
+Generate  mosaic plot
 
-```{r}
-mosaic(emo_mx,
-       shade = TRUE,
-       direction = c("h",  "v", "v"),
-       just_labels = c("center", "center", "center", "center"))
-```
-
-* prettyfied mosaic plot
 
 ```{r}
 # open connection
@@ -276,29 +362,34 @@ mosaic(emo_mx,
        just_labels = c("center", "center", "center", "center"))
 # close window
 dev.off() 
+# show plot
+mosaic(emo_mx,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"))
 ```
-
-
-
-
 
 ## Polarity
 
+### X2 (wo variety)
+
+RQ: Does the polarity of words in the x-much structure differ from the polarity in the control data?
+
+Prepare data
+
 ```{r}
-pol_tb2 <- xmuch %>%
+pol_tb1 <- xmuch %>%
   dplyr::mutate(polarity = ifelse(polarity == "nonemotional", "neutral", polarity)) %>%
   dplyr::group_by(polarity, control) %>%
   dplyr::summarise(freq = n())
 # inspect
-pol_tb2
+pol_tb1
 ```
-
-### X2
 
 Perform x2-test
 
 ```{r}
-pol_x2 <- pol_tb2 %>%
+pol_x2 <- pol_tb1 %>%
   tidyr::spread(control, freq) %>%
   as.matrix()
 # inspect
@@ -314,9 +405,11 @@ rownames(pol_x2) <- rn
 pol_x2
 # perform x2 test
 chisq.test(pol_x2)
+# effect size
+effectsize::effectsize(chisq.test(pol_x2), type = "phi")
 ```
 
-The words in the x-much construction are significantly more emotional compared to the words in the control data.
+The polarity of words in the X-much structure is significantly different from the polarity of words in the control data.
 
 ```{r}
 # adapt column names
@@ -331,6 +424,58 @@ dev.off()
 assocplot(pol_x2)
 ```
 
+
+### X2 (wo variety)
+
+RQ: Does the polarity of words in the x-much structure in Australia differ from the polarity of words in the x-much structure in  Ireland?
+
+Prepare data
+
+```{r}
+pol_tb2 <- xmuch %>%
+  dplyr::filter(control == "test") %>%
+  dplyr::mutate(polarity = ifelse(polarity == "nonemotional", "neutral", polarity)) %>%
+  dplyr::group_by(polarity, variety) %>%
+  dplyr::summarise(freq = n())
+# inspect
+pol_tb2
+```
+
+Perform x2-test
+
+```{r}
+pol_x22 <- pol_tb2 %>%
+  tidyr::spread(variety, freq) %>%
+  as.matrix()
+# inspect
+pol_x22
+```
+
+
+```{r}
+rn <- pol_x22[,1]
+pol_x22 = pol_x22[, 2:3]
+pol_x22 <- apply(pol_x22, 2, as.numeric)
+rownames(pol_x22) <- rn
+pol_x22
+# perform x2 test
+chisq.test(pol_x22)
+# effect size
+effectsize::effectsize(chisq.test(pol_x22), type = "phi")
+```
+
+
+Australia and Ireland do  **not**  differ significantly with respect to the polarity of the words in the X-much structure.
+
+```{r}
+# open window
+png(here::here("images", "pol_var_assoc.png"), width = 500, height = 350)
+# generate plot
+assocplot(pol_x22)
+# close window
+dev.off() 
+assocplot(pol_x22)
+```
 
 ### CFA
 
@@ -366,7 +511,7 @@ pol_vis
 ```
 
 
-* prepare data
+* convert to matrix
 
 
 ```{r}
@@ -394,7 +539,7 @@ pol_mx
 
 
 
-* basic mosaic plot
+* mosaic plot
 
 ```{r}
 # open window
@@ -435,6 +580,32 @@ vcd::mosaic(Polarity ~ Variety, data = pol_vis,
 
 ## POS
 
+tabulation
+
+
+```{r}
+pos_tab <- xmuch %>%
+  dplyr::group_by(variety, control, pos) %>%
+  dplyr::summarise(Freq = n()) %>%
+  dplyr::group_by(variety, control) %>%
+  dplyr::mutate(total = sum(Freq)) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(Percent = round(Freq/total*100, 1),
+                Frequency = paste0(Freq, " (", Percent, ")")) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-Freq, -total, -Percent) %>%
+  tidyr::spread(pos, Frequency)
+# inspect
+pos_tab
+```
+
+
+RQ: Do the word classes (parts-of-speech) of words in the x-much structure differ from the word classes in the control data?
+
+
+### X2 (wo variety)
+
+Prepare data
 
 ```{r}
 pos_tb1 <- xmuch %>%
@@ -443,8 +614,6 @@ pos_tb1 <- xmuch %>%
 # inspect
 pos_tb1
 ```
-
-### X2
 
 Perform x2-test
 
@@ -465,7 +634,11 @@ rownames(pos_x2) <- rn
 pos_x2
 # perform x2 test
 chisq.test(pos_x2)
+# effect size
+effectsize::effectsize(chisq.test(pos_x2), type = "phi")
 ```
+
+The word classes (parts-of-speech) of words in the x-much structure differ significantly from the word classes in the control data!
 
 generate association plot
 
@@ -480,6 +653,58 @@ assocplot(pos_x2)
 # close window
 dev.off() 
 assocplot(pos_x2)
+```
+
+### X2 (variety)
+
+RQ: Do Australia and Ireland differ with respect to the word classes (parts-of-speech) of words in the x-much structure?
+
+Prepare data
+
+```{r}
+pos_tb2 <- xmuch %>%
+  dplyr::filter(control == "test") %>%
+  dplyr::group_by(pos, variety) %>%
+  dplyr::summarise(freq = n())
+# inspect
+pos_tb2
+```
+
+Perform x2-test
+
+```{r}
+pos_x22 <- pos_tb2 %>%
+  tidyr::spread(variety, freq) %>%
+  as.matrix()
+# inspect
+pos_x22
+```
+
+
+```{r}
+rn <- pos_x22[,1]
+pos_x22 = pos_x22[, 2:3]
+pos_x22 <- apply(pos_x22, 2, as.numeric)
+rownames(pos_x22) <- rn
+pos_x22
+# perform x2 test
+chisq.test(pos_x22)
+# effect size
+effectsize::effectsize(chisq.test(pos_x22), type = "phi")
+```
+
+Australia and Ireland differ significantly with respect to the word classes (parts-of-speech) of words in the x-much structure!
+
+generate association plot
+
+```{r}
+# open window
+png(here::here("images", "pos_var_assoc.png"), width = 500, height = 350)
+# generate plot
+assocplot(pos_x22)
+# close window
+dev.off() 
+assocplot(pos_x22)
 ```
 
 ### CFA
@@ -550,10 +775,7 @@ pos_mx <- array(c(pol1, pol2, pol3), dim = c(2, 2, 4),
 pos_mx
 ```
 
-
-
-
-* basic mosaic plot
+Generate mosaic plot
 
 ```{r}
 # open window
@@ -581,14 +803,14 @@ mosaic(pos_mx,
 ## Words
 
 
-Words overrepresented in x-much
+RQ: Are there Words that are significantly over-represented in the X-much structure?
 
 
 **Constructionalization more advanced in AusE**
 
 ### CFA (wo vareity)
 
-RQ: Regardless of variety, are there words that are significantly attracted by the x-much construction?
+RQ: Regardless of variety, are there words that are significantly attracted by the X-much structure?
 
 ```{r}
 wordcat_tb <- xmuch %>%
@@ -607,7 +829,56 @@ cfa::cfa(configs, counts)
 
 ```{r}
 r7 <- cfa::cfa(configs, counts)
+# save to disc
+sig_words <- r7$table %>%
+  as.data.frame() %>%
+  dplyr::mutate(expected = round(expected, 1),
+                Q = round(Q, 3),
+                chisq = round(chisq, 3),
+                z = round(z, 3),
+                p.z = round(p.z, 3),
+                label = stringr::str_remove_all(label, "test ")) %>%
+  dplyr::select(-p.chisq, -sig.chisq)
+# save to disc
+write.table(sig_words, 
+            here::here("tables", "xmuch_words.txt"), 
+            sep = "\t", 
+            row.names = F)
+# extract words
 words <- r7$table %>%
+  as.data.frame() %>%
+  dplyr::mutate(Type = ifelse(n > expected, "Type", "Antitype")) %>%
+  dplyr::filter(sig.z == T,
+                Type == "Type") %>%
+  dplyr::pull(label) %>%
+  stringr::str_remove_all("test ")
+words
+```
+
+Words that are significantly over-represented in the X-much structure: `r words`
+
+### X2 (w variety)
+
+RQ: Do the words that are significantly attracted by the x-much construction differ across varieties?
+
+```{r}
+wordcat_tb <- xmuch %>%
+  dplyr::filter(control == "test") %>%
+  dplyr::group_by(variety, x) %>%
+  dplyr::mutate(freq = n()) %>%
+  dplyr::mutate(x = ifelse(freq < 2, "other", x)) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(x, variety) %>%
+  dplyr::summarise(freq = n())
+configs <- wordcat_tb %>%
+  dplyr::select(variety, x)
+counts = wordcat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+```{r}
+r8 <- cfa::cfa(configs, counts)
+words <- r8$table %>%
   as.data.frame() %>%
   dplyr::filter(sig.z == T) %>%
   dplyr::pull(label) %>%
@@ -615,11 +886,12 @@ words <- r7$table %>%
 words
 ```
 
-Words that are significantly over-represented in the x-much construction: 
+The analysis does not confirm variety specific attraction of types to the X-much structure.
+
 
 ### CFA (w variety)
 
-RQ: Do the words that are significantly attracted by the x-much construction differ across varieties?
+RQ: Do the words that are significantly attracted by the x-much construction differ across varieties when we consider the control data?
 
 ```{r}
 wordcat_tb <- xmuch %>%
@@ -637,6 +909,22 @@ cfa::cfa(configs, counts)
 
 ```{r}
 r8 <- cfa::cfa(configs, counts)
+# save to disc
+config_words <- r8$table %>%
+  as.data.frame() %>%
+  dplyr::mutate(expected = round(expected, 1),
+                Q = round(Q, 3),
+                chisq = round(chisq, 3),
+                z = round(z, 3),
+                p.z = round(p.z, 3),
+                label = stringr::str_remove_all(label, "test ")) %>%
+  dplyr::select(-p.chisq, -sig.chisq)
+# save to disc
+write.table(config_words, 
+            here::here("tables", "xmuch_wordconfigs.txt"), 
+            sep = "\t", 
+            row.names = F)
+# save to disc
 words <- r8$table %>%
   as.data.frame() %>%
   dplyr::filter(stringr::str_detect(label, "control", negate = TRUE),
@@ -646,7 +934,7 @@ words <- r8$table %>%
 words
 ```
 
-The words that are attracted to the x-much construction in Ireland are less negative compared to the words that are attracted to the x-much construction in Oz. Compare *excuses*, *coincidence*, or *agenda* (Ireland) to *jealous*, *paranoid*, *hypocrite*, *creepy*, *threatened*, or *entitled* (Australia).
+The words that are attracted to the X-much structure in Ireland are less negative compared to the words that are attracted to the x-much construction in Oz. Compare *excuses*, *coincidence*, or *agenda* (Ireland) to *jealous*, *paranoid*, *hypocrite*, *creepy*, *threatened*, or *entitled* (Australia).
 
 ## CIT
 
@@ -685,6 +973,7 @@ citd.ctree <- partykit::ctree(Frequency ~ Variety + POS + Unit + Emotionality + 
 plot(citd.ctree, gp = gpar(fontsize = 8)) # plot final ctree
 ```
 
+The CIT analysis does nto confirm significant stratification in the data.
 
 # Outro
 

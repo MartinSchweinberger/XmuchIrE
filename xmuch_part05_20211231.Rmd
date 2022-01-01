@@ -1,0 +1,739 @@
+---
+title: "X-much in IrE and AusE - Part 5: Statistical Analysis"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on the use of the X-much structure in Irish and Australian English. 
+
+This part of the analysis performs the data analysis.
+
+# Session preparation
+
+* install packages
+
+```{r install, eval = F, message = F, warning = F}
+install.packages("tidyverse")
+install.packages("here")
+install.packages("readxl")
+install.packages("flextable")
+install.packages("quanteda")
+install.packages("tidytext")
+install.packages("cfa")
+install.packages("report")
+```
+
+
+* load packages
+
+* set options
+
+
+```{r xmprep_2_01}
+# load packages
+library(tidyverse)
+library(here)
+library(readxl)
+library(flextable)
+library(quanteda)
+library(tidytext)
+library(cfa)
+library(vcd)
+# setting options
+options(stringsAsFactors = F)
+```
+
+# Load data
+
+```{r load, message=F, warning=F}
+xmuch <- base::readRDS(file = here::here("data", "xmuch.rda"))
+# inspect
+head(xmuch, 10)
+```
+
+# Statistical Analysis
+
+## Single vs Multiword
+
+RQ: do ire and aus differ regarding the status of x (single word vs multiword)?
+
+```{r}
+phrasetb <- xmuch %>%
+  dplyr::filter(control == "test") %>%
+  dplyr::select(variety, element) %>%
+  dplyr::group_by(variety, element) %>%
+  dplyr::summarise(freq = n()) %>%
+  dplyr::group_by(variety) %>%
+  dplyr::mutate(total = sum(freq)) %>%
+  dplyr::ungroup() %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(percent = round(freq/total*100, 2))
+# inspect
+phrasetb
+```
+
+
+
+```{r}
+phrase_x2 <- phrasetb %>%
+  dplyr::select(-total, -percent) %>%
+  tidyr::spread(element, freq) %>%
+  as.matrix()
+# add rownames
+rownames(phrase_x2) <- phrase_x2[, 1]
+phrase_x2 <- phrase_x2[, 2:3]
+# convert to numeric
+phrase_x2 <- t(apply(phrase_x2, 1, function(x){ 
+  x <- as.numeric(x) }))
+# add column names
+#colnames(phrase_x2) <- names(table(phrasetb$element))
+colnames(phrase_x2) <- c("single-word", "multi-word exp.")
+# inspect
+phrase_x2
+```
+
+* perform X2-test [@stats]
+
+```{r}
+chisq.test(phrase_x2)
+```
+
+
+generate visualization
+
+
+```{r}
+# open window
+png(here::here("images", "assoc_phrase_rvar.png"), width = 500, height = 450)
+# generate plot
+assocplot(phrase_x2)#,
+          #main = "Distribution of single vs multi-word expressions\nin the X-much slot by regional variety.")
+# close window
+dev.off() 
+assocplot(phrase_x2)
+```
+
+
+## Emotionality
+
+```{r}
+xmdtb <- xmuch %>%
+  dplyr::select(variety, x, pos, emo, polarity, control) %>%
+  dplyr::rename(word = x)
+# inspect
+head(xmdtb)
+```
+
+
+* tabulation
+
+```{r tb}
+tb1 <-base::readRDS(file = here::here("tables", "tb1.rda")) %>%
+  dplyr::mutate(variety = stringr::str_replace_all(text, ".*_([a-z]{2,2})_.*", "\\1"),
+                variety = ifelse(variety == "au", "Australia", "Ireland")) %>%
+  dplyr::group_by(variety) %>%
+  dplyr::summarise(words = sum(words),
+                   texts = n())
+# inspect
+head(tb1)
+```
+
+
+```{r}
+xmdtb %>%
+  dplyr::group_by(variety, control) %>%
+  dplyr::summarise(freq = n())
+```
+
+### X2
+
+RQ: Does the emotionality of words in the test data (in the x-much construction) differ from the emotionality in the control data?
+
+```{r}
+emo_tb1 <- xmdtb %>%
+  dplyr::group_by(emo, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+head(emo_tb1)
+```
+
+Perform x2-test
+
+```{r}
+emo_x2 <- emo_tb1 %>%
+  tidyr::spread(control, freq) %>%
+  as.matrix()
+rn<- emo_x2[,1]
+emo_x2 = emo_x2[, 2:3]
+emo_x2 <- apply(emo_x2, 2, as.numeric)
+rownames(emo_x2) <- rn
+emo_x2
+# perform x2 test
+chisq.test(emo_x2)
+```
+
+The words in the x-much construction are significantly more emotional compared to the words in the control data.
+
+```{r}
+# adapt column names
+colnames(emo_x2) <- c("control", "Xmuch")
+
+# open window
+png(here::here("images", "assoc_emo.png"), width = 500, height = 350)
+# generate plot
+assocplot(emo_x2)
+# close window
+dev.off() 
+assocplot(emo_x2)
+```
+
+
+###  CFA
+
+```{r}
+emo_tb3 <- xmdtb %>%
+  dplyr::group_by(emo, variety, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+emo_tb3
+```
+
+```{r}
+configs <- emo_tb3 %>%
+  dplyr::select(variety, emo, control)
+counts = emo_tb3$freq
+cfa::cfa(configs, counts)
+```
+
+There are significantly more negative adjectives in the x-much construction in the Australian data after corrections compared to any other configuration.
+
+### Visualization
+
+* prepare data
+
+```{r}
+emo_vis <- emo_tb3 %>%
+  dplyr::ungroup() %>%
+  dplyr::rename(Freq = freq,
+                Emotionality = emo,
+                Variety = variety,
+                Data = control) %>%
+  dplyr::mutate_if(is.character, factor) %>%
+  dplyr::mutate(Data = ifelse(Data == "test", "X-much", "control"))
+# inspect
+head(emo_vis)
+```
+
+
+```{r}
+emo1 <- emo_vis %>%
+  dplyr::filter(Emotionality == "emotional") %>%
+  dplyr::pull()
+emo2 <- emo_vis %>%
+  dplyr::filter(Emotionality == "nonemotional") %>%
+  dplyr::pull()
+# add dimnames
+column.names <- c("Australia", "Ireland")
+row.names <- c("control", "X-much")
+matrix.names <- c("emotional", "nonemotional")
+# generate matrix
+emo_mx <- array(c(emo1, emo2), dim = c(2, 2, 2),
+                  dimnames = list(row.names, 
+                                  column.names,
+                                  matrix.names))
+# inspect
+emo_mx
+```
+
+
+
+* basic mosaic plot
+
+```{r}
+mosaic(emo_mx,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"))
+```
+
+* prettyfied mosaic plot
+
+```{r}
+# open connection
+png(here::here("images", "cfa_emo_mosaic.png"), width = 750, height = 300)
+# generate plot
+mosaic(emo_mx,
+       axis.cex = 15,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"))
+# close window
+dev.off() 
+```
+
+
+
+
+
+## Polarity
+
+```{r}
+pol_tb2 <- xmuch %>%
+  dplyr::mutate(polarity = ifelse(polarity == "nonemotional", "neutral", polarity)) %>%
+  dplyr::group_by(polarity, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+pol_tb2
+```
+
+### X2
+
+Perform x2-test
+
+```{r}
+pol_x2 <- pol_tb2 %>%
+  tidyr::spread(control, freq) %>%
+  as.matrix()
+# inspect
+pol_x2
+```
+
+
+```{r}
+rn <- pol_x2[,1]
+pol_x2 = pol_x2[, 2:3]
+pol_x2 <- apply(pol_x2, 2, as.numeric)
+rownames(pol_x2) <- rn
+pol_x2
+# perform x2 test
+chisq.test(pol_x2)
+```
+
+The words in the x-much construction are significantly more emotional compared to the words in the control data.
+
+```{r}
+# adapt column names
+colnames(pol_x2) <- c("control", "Xmuch")
+
+# open window
+png(here::here("images", "assoc_pol.png"), width = 500, height = 350)
+# generate plot
+assocplot(pol_x2)
+# close window
+dev.off() 
+assocplot(pol_x2)
+```
+
+
+### CFA
+
+```{r}
+pol_tb1 <- xmuch %>%
+  dplyr::mutate(polarity = ifelse(polarity == "nonemotional", "neutral", polarity)) %>%
+  dplyr::group_by(polarity, variety, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+pol_tb1
+```
+
+```{r}
+configs <- pol_tb1 %>%
+  dplyr::select(variety, polarity, control)
+counts = pol_tb1$freq
+cfa::cfa(configs, counts)
+```
+
+### Visualization
+
+* prepare data
+
+```{r}
+pol_vis <- pol_tb1 %>%
+  dplyr::ungroup() %>%
+  dplyr::rename(Freq = freq,
+                Polarity = polarity,
+                Variety = variety) %>%
+  dplyr::mutate_if(is.character, factor)
+# inspect
+pol_vis
+```
+
+
+* prepare data
+
+
+```{r}
+pol1 <- pol_vis %>%
+  dplyr::filter(Polarity == "positive") %>%
+  dplyr::pull(Freq)
+pol2 <- pol_vis %>%
+  dplyr::filter(Polarity == "neutral") %>%
+  dplyr::pull(Freq)
+pol3 <- pol_vis %>%
+  dplyr::filter(Polarity == "negative") %>%
+  dplyr::pull(Freq)
+# add dimnames
+column.names <- c("Australia", "Ireland")
+row.names <- c("control", "X-much")
+matrix.names <- c("positive", "neutral", "negative")
+# generate matrix
+pol_mx <- array(c(pol1, pol2, pol3), dim = c(2, 2, 3),
+                  dimnames = list(row.names, 
+                                  column.names,
+                                  matrix.names))
+# inspect
+pol_mx
+```
+
+
+
+* basic mosaic plot
+
+```{r}
+# open window
+png(here::here("images", "cfa_pol.png"), width = 750, height = 300)
+# generate plot
+mosaic(pol_mx,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"))
+# close window
+dev.off() 
+# show plot
+mosaic(pol_mx,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"))
+```
+
+
+* prettyfied mosaic plot
+
+```{r}
+# define cols
+mycols <- rev(RColorBrewer::brewer.pal(3, "Greys"))
+vcd::mosaic(Polarity ~ Variety, data = pol_vis, 
+            direction = c("v",  "h"),
+            rot_labels = c(0, 0, 0, 0),
+            highlighting_fill = mycols,
+            labeling_args = list(tl_labels = c(F, T),
+                                 set_varnames = c(Polarity = "Polarity\n\n\n\n\n\n\n"),
+                                 offset_varnames = c(0, 0, 0, 1),
+                                 just_labels = c("center", "center", "center", "right")))
+# save plot
+ggsave(here::here("images", "pol_var.png"), units = "cm", width = 8, height = 6)
+```
+
+
+
+## POS
+
+
+```{r}
+pos_tb1 <- xmuch %>%
+  dplyr::group_by(pos, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+pos_tb1
+```
+
+### X2
+
+Perform x2-test
+
+```{r}
+pos_x2 <- pos_tb1 %>%
+  tidyr::spread(control, freq) %>%
+  as.matrix()
+# inspect
+pos_x2
+```
+
+
+```{r}
+rn <- pos_x2[,1]
+pos_x2 = pos_x2[, 2:3]
+pos_x2 <- apply(pos_x2, 2, as.numeric)
+rownames(pos_x2) <- rn
+pos_x2
+# perform x2 test
+chisq.test(pos_x2)
+```
+
+
+```{r}
+# adapt column names
+colnames(pos_x2) <- c("control", "Xmuch")
+
+# open window
+png(here::here("images", "assoc_pos.png"), width = 500, height = 350)
+# generate plot
+assocplot(pos_x2)
+# close window
+dev.off() 
+assocplot(pos_x2)
+```
+
+### CFA
+
+
+```{r}
+pos_tb2 <- xmuch %>%
+  dplyr::group_by(pos, variety, control) %>%
+  dplyr::summarise(freq = n())
+# inspect
+pos_tb2
+```
+
+```{r}
+configs <- pos_tb2 %>%
+  dplyr::select(variety, pos, control)
+counts = pos_tb2$freq
+cfa::cfa(configs, counts)
+```
+
+
+### Visualization
+
+* prepare data
+
+```{r}
+pos_vis <- pos_tb2 %>%
+  dplyr::ungroup() %>%
+  dplyr::rename(Freq = freq,
+                POS = pos,
+                Variety = variety) %>%
+  dplyr::mutate_if(is.character, factor)
+# inspect
+pos_vis
+```
+
+
+
+* prepare data
+
+
+```{r}
+pos1 <- pos_vis %>%
+  dplyr::filter(POS == "Adjective") %>%
+  dplyr::pull(Freq)
+pos2 <- pos_vis %>%
+  dplyr::filter(POS == "Noun") %>%
+  dplyr::pull(Freq)
+pos3 <- pos_vis %>%
+  dplyr::filter(POS == "other") %>%
+  dplyr::pull(Freq)
+pos4 <- pos_vis %>%
+  dplyr::filter(POS == "Verb") %>%
+  dplyr::pull(Freq)
+# add dimnames
+column.names <- c("Australia", "Ireland")
+row.names <- c("control", "X-much")
+matrix.names <- c("Adj.", "Noun", "other", "Verb")
+# generate matrix
+pos_mx <- array(c(pol1, pol2, pol3), dim = c(2, 2, 4),
+                  dimnames = list(row.names, 
+                                  column.names,
+                                  matrix.names))
+# inspect
+pos_mx
+```
+
+
+
+
+* basic mosaic plot
+
+```{r}
+# open window
+png(here::here("images", "cfa_pos.png"), width = 750, height = 300)
+# generate plot
+mosaic(pos_mx,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"),
+       rot_labels=c(0,0,90,90),
+       offset_labels = c(0, 0, 0.5,0))
+# close window
+dev.off() 
+# show plot
+mosaic(pos_mx,
+       shade = TRUE,
+       direction = c("h",  "v", "v"),
+       just_labels = c("center", "center", "center", "center"),
+       rot_labels=c(0,0,90,90),
+       offset_labels = c(0, 0, 0.5,0))
+```
+
+
+## CFA: Pos attracted to x-much vs control
+
+RQ: are certain pos significantly more common in the x-much construction compared to the control data?
+
+
+```{r}
+poscat_tb <- xmdj %>%
+  dplyr::group_by(pos, control) %>%
+  dplyr::summarise(freq = n())
+configs <- poscat_tb %>%
+  dplyr::select(control, pos)
+counts = poscat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+According to the CFA, jj, nn, and vv are significantly over-represented while other pos are significantly underrepresented.
+
+## Visualization
+
+```{r}
+head(poscat_tb)
+```
+
+convert to matrix
+
+```{r}
+poscat_mx <- poscat_tb %>%
+  tidyr::spread(control, freq) %>%
+  dplyr::rename(Xmuch = test)
+# extract row names
+rnms <- poscat_mx$pos
+# modify row names
+rnms <- ifelse(rnms == "nn", "Noun",
+         ifelse(rnms == "jj", "Adjective",
+                ifelse(rnms == "vv", "Verb", rnms)))
+# convert to matrix
+poscat_mx <- poscat_mx %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-pos) %>%
+  as.matrix()
+# add row names
+rownames(poscat_mx) <- rnms
+poscat_mx <- poscat_mx[c(1, 2, 4, 3),]
+# inspect
+head(poscat_mx)
+```
+
+generate plot
+
+```{r}
+# open window
+png(here::here("images", "assoc_pos.png"), width = 500, height = 350)
+# generate plot
+assocplot(poscat_mx)
+# close window
+dev.off() 
+assocplot(poscat_mx)
+```
+
+
+
+
+## CFA: Pos attracted to x-much vs variety
+
+RQ: are certain pos significantly more common in the x-much construction by variety?
+
+```{r}
+poscat_tb <- xmdj %>%
+  dplyr::group_by(pos, control, variety) %>%
+  dplyr::summarise(freq = n())
+configs <- poscat_tb %>%
+  dplyr::select(variety, pos)
+counts = poscat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+In Australian English jj, vv, and nn are significantly over-represented. In Irish English only other are under-represented.
+
+```{r}
+poscat_tb
+```
+
+
+
+
+
+**Constructionalization more advanced in AusE**
+
+## CFA: words overrepresented in x-much
+
+RQ: Regardless of variety, are there words that are significantly attracted by the x-much construction?
+
+```{r}
+wordcat_tb <- xmdj %>%
+  dplyr::group_by(control, word) %>%
+  dplyr::mutate(freq = n()) %>%
+  dplyr::mutate(word = ifelse(freq < 2, "other", word)) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(word, control) %>%
+  dplyr::summarise(freq = n())
+configs <- wordcat_tb %>%
+  dplyr::select(control, word)
+counts = wordcat_tb$freq
+cfa::cfa(configs, counts)
+
+```
+
+```{r}
+r7 <- cfa::cfa(configs, counts)
+words <- r7$table %>%
+  as.data.frame() %>%
+  dplyr::filter(sig.z == T) %>%
+  dplyr::pull(label) %>%
+  stringr::str_remove_all("test ")
+words
+```
+
+Words that are significantly over-represented in the x-much construction: 
+
+## CFA: words overrepresented in x-much
+
+RQ: Do the words that are significantly attracted by the x-much construction differ across varieties?
+
+```{r}
+wordcat_tb <- xmdj %>%
+  dplyr::group_by(control, variety, word) %>%
+  dplyr::mutate(freq = n()) %>%
+  dplyr::mutate(word = ifelse(freq < 2, "other", word)) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(word, variety, control) %>%
+  dplyr::summarise(freq = n())
+configs <- wordcat_tb %>%
+  dplyr::select(control, variety, word)
+counts = wordcat_tb$freq
+cfa::cfa(configs, counts)
+```
+
+```{r}
+r8 <- cfa::cfa(configs, counts)
+words <- r8$table %>%
+  as.data.frame() %>%
+  dplyr::filter(stringr::str_detect(label, "control", negate = TRUE),
+                sig.z == T) %>%
+  dplyr::pull(label) %>%
+  stringr::str_remove_all("test ")
+words
+```
+
+The words that are attracted to the x-much construction in Ireland are less negative compared to the words that are attracted to the x-much construction in Oz. Compare *excuses*, *coincidence*, or *agenda* (Ireland) to *jealous*, *paranoid*, *hypocrite*, *creepy*, *threatened*, or *entitled* (Australia).
+
+## Save data to disc{-}
+
+```{r}
+base::saveRDS(emodf, file = here::here("tables", "cc_emo.rda"))
+```
+
+
+# Outro
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

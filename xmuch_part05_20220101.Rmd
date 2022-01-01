@@ -25,8 +25,6 @@ install.packages("quanteda")
 install.packages("tidytext")
 install.packages("cfa")
 install.packages("report")
-install.packages("party")
-install.packages("partykit")
 install.packages("effectsize")
 ```
 
@@ -46,8 +44,6 @@ library(quanteda)
 library(tidytext)
 library(cfa)
 library(vcd)
-library(party)
-library(partykit)
 library(effectsize)
 # setting options
 options(stringsAsFactors = F)
@@ -943,44 +939,6 @@ words
 
 The words that are attracted to the X-much structure in Ireland are less negative compared to the words that are attracted to the x-much construction in Oz. Compare *excuses*, *coincidence*, or *agenda* (Ireland) to *jealous*, *paranoid*, *hypocrite*, *creepy*, *threatened*, or *entitled* (Australia).
 
-## CIT
-
-Process data
-
-```{r}
-citdata <- xmuch %>%
-  dplyr::filter(control == "test") %>%
-  dplyr::select(variety, pos, element, emo, polarity, x) %>%
-  dplyr::rename(X = x,
-                Variety = variety,
-                Polarity = polarity,
-                Emotionality = emo,
-                Unit = element,
-                POS = pos) %>%
-  dplyr::group_by(Variety, POS, Unit, Emotionality, Polarity, X) %>%
-  dplyr::summarise(Frequency = n()) %>%
-  dplyr::ungroup()
-# inspect
-head(citdata)
-```
-
-Perform CIT analysis with the *party* [@party] and the *partykit* [@partykit] packages
-
-```{r}
-# set.seed
-set.seed(111)        
-# apply bonferroni correction (1 minus alpha multiplied by n of predictors)
-control = ctree_control(mincriterion = 1-(.05*ncol(citdata)-1))
-# convert character strings to factors
-citdata <- citdata %>%
-  dplyr::mutate_if(is.character, factor)
-# create initial conditional inference tree model
-citd.ctree <- partykit::ctree(Frequency ~ Variety + POS + Unit + Emotionality + Polarity,
-                    data = citdata)
-plot(citd.ctree, gp = gpar(fontsize = 8)) # plot final ctree
-```
-
-The CIT analysis does nto confirm significant stratification in the data.
 
 # Outro
 

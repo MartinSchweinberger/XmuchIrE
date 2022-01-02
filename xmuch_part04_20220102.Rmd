@@ -1,0 +1,260 @@
+---
+title: "X-much in IrE and AusE - Part 4: Data Processing"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on the use of the X-much construction in Irish and Australian English. 
+
+This part of the analysis performs the data processing of the control corpus and combines the controll with the test data.
+
+# Session preparation
+
+* install packages
+
+```{r install, eval = F, message = F, warning = F}
+install.packages("tidyverse")
+install.packages("here")
+install.packages("quanteda")
+install.packages("tidytext")
+```
+
+
+* load packages
+
+* set options
+
+
+```{r xmprep_2_01}
+# load packages
+library(tidyverse)
+library(here)
+library(quanteda)
+library(tidytext)
+# setting options
+options(stringsAsFactors = F)
+```
+
+# Load data
+
+```{r load, message=F, warning=F}
+# load raw control
+ccps  <- base::readRDS(file = here::here("data", "ccorpus.rda")) %>%
+  dplyr::mutate(docname = stringr::str_remove_all(paste0(file, "_", subfile), "/"))
+# load raw xmuch
+xmd <- base::readRDS(file = here::here("data/kwics", "xmd.rda")) %>%
+  dplyr::mutate(control = "test") %>%
+  dplyr::rename(pos = type,
+                kwic = clean_content) %>%
+  dplyr::select(-pre, -keyword, -post, -PrePosTag, -PostPosTag) %>%
+  dplyr::mutate(x = stringr::str_remove_all(x, "[0-9]{2,2}"),
+                x = stringr::str_squish(x))
+xmdfiles <- unique(stringr::str_remove_all(xmd$docname, "\\..*"))
+# inspect
+head(xmd, 10)
+```
+
+* manual check of sentiment annotation
+
+
+```{r}
+write.table(xmd, here::here("data", "xmd.txt"), sep = "\t", row.names = F)
+```
+
+
+```{r}
+neg <- c(29, 32, 35, 39, 43, 49, 57, 59, 67, 82, 113, 131, 136, 138, 142, 168, 
+         170, 180, 189, 217, 243, 260, 274, 281, 283, 305, 316, 327, 341, 345, 
+         348, 364, 402, 405, 421, 430, 436, 453, 454, 461, 469, 501, 510, 527, 
+         534, 555, 556, 572, 573, 577, 580, 590, 604, 623, 657, 676, 708, 712,
+         728, 731, 741, 788, 790, 837, 846)
+non <- c(7, 8, 11, 26, 27, 33, 100, 101, 105, 137, 159, 162, 169, 194, 218, 222, 
+         224, 299, 313, 315, 332, 366, 370, 373, 374, 392, 414, 418, 435, 440, 445, 
+         449, 455, 467, 480, 486, 491, 495, 503, 513, 521, 524, 544, 548, 549, 
+         557, 571, 574, 603, 605, 635, 639, 642, 677, 678, 688, 693, 694, 695, 
+         696, 698, 709, 732, 754, 789, 792)
+pos <- c(1, 5, 17, 41, 51, 66, 115, 245, 317, 511, 618)
+xmd <- xmd %>%
+  dplyr::mutate(emo = ifelse(id %in% neg, "negative",
+                             ifelse(id %in% non, "nonemotional",
+                                    ifelse(id %in% pos, "positive", emo)))) %>%
+  # repairs
+  dplyr::mutate(x = ifelse(x == "semitic", "anti-semitic",
+                           ifelse(x == "jelous", "jealous", x)))
+# inspect
+head(xmd)
+```
+
+
+
+* remove files that are in the xmd data from the controll data
+
+```{r filter, message=F, warning=F}
+ccps <- ccps %>%
+  dplyr::filter(!docname %in% xmdfiles) %>%
+  dplyr::mutate(variety = stringr::str_replace_all(docname, ".*_([a-z]{2,2})_.*", "\\1"))
+# inspect
+nrow(ccps)
+```
+
+inspect data
+
+```{r}
+# inspect
+head(ccps, 10)
+```
+
+
+* tokenize control data so that every row represents one word
+
+* add variety column
+
+* extract and simplify parts-of-speech
+
+* select a sample of 1000 words (that do not contain special characters)
+
+```{r adj, message=F, warning=F}
+# oz control
+cctxt_au <- ccps %>%
+  dplyr::filter(!docname %in% xmdfiles) %>%
+  dplyr::mutate(text = paste0(variety, "_", text)) %>%
+  dplyr::filter(stringr::str_detect(text, "^au")) %>%
+  dplyr::pull(text)
+# ie control
+cctxt_ie <- ccps %>%
+  dplyr::filter(!docname %in% xmdfiles) %>%
+  dplyr::mutate(text = paste0(variety, "_", text)) %>%
+  dplyr::filter(stringr::str_detect(text, "^ie")) %>%
+  dplyr::pull(text)
+# tok oz
+tokcc_au <- quanteda::tokens(cctxt_au, what = "fastestword") %>%
+  unlist() %>%
+  sample(3000)
+# tok ie
+tokcc_ie <- quanteda::tokens(cctxt_ie, what = "fastestword") %>%
+  unlist() %>%
+  sample(3000)
+# combine
+tokcc <-c(tokcc_au, tokcc_ie)
+# generate df
+tkdf <- tokcc %>%
+  as.data.frame() %>%
+  dplyr::mutate(variety = c(rep("au", length(tokcc_au)), rep("ie", length(tokcc_ie)))) %>%
+  dplyr::mutate(pos = stringr::str_remove_all(tokcc, ".*/"),
+                word = tolower(stringr::str_remove_all(tokcc, "/.*")),
+                variety = ifelse(variety == "au", "Australia", "Ireland")) %>%
+  dplyr::rename(full = colnames(.)[1]) %>%
+  dplyr::mutate(pos = stringr::str_remove_all(pos, "[0-9].*|@.*|_.*")) %>%
+  dplyr::filter(!stringr::str_detect(word, "\\W")) %>%
+  dplyr::group_by(variety) %>%
+  dplyr::sample_n(1000)
+# inspect
+head(tkdf); table(tkdf$variety)
+```
+
+# Sentiment analysis
+
+* extract emotives
+
+```{r emo1, message=F, warning=F}
+# sentiments
+emo <- get_sentiments("nrc") %>%
+  dplyr::filter(sentiment == "positive"| sentiment == "negative")
+wordpos <- emo %>%
+  dplyr::filter(sentiment == "positive") %>%
+  dplyr::pull(word)
+wordneg <- emo %>%
+  dplyr::filter(sentiment == "negative") %>%
+  dplyr::pull(word)
+```
+
+* annotate emotionality
+
+```{r emo1, message=F, warning=F}
+cemodf <- tkdf %>%
+  dplyr::mutate(emo = dplyr::case_when(word %in% wordpos ~ "positive",
+                                       word %in% wordneg ~ "negative",
+                                       TRUE ~ "nonemotional")) %>%
+  dplyr::mutate(control = "control") %>%
+  dplyr::rename(x = word) %>%
+  dplyr::select(-full)
+# inspect
+head(cemodf)
+```
+
+
+
+
+
+
+# combine x-much and control
+
+* inspect data
+
+```{r}
+head(xmd, 3)
+head(cemodf, 3)
+```
+
+* combine data (add rows; warning: column names different, hence dplyr::bind_rows)
+
+```{r}
+xmuch <- dplyr::bind_rows(xmd, cemodf) %>%
+  dplyr::mutate(element = ifelse(is.na(element), "word", element),
+                polarity = ifelse(emo == "nonemotional", "neutral", emo),
+                emo = ifelse(emo == "nonemotional", "nonemotional", "emotional"),
+                pos = dplyr::case_when(stringr::str_detect(pos, "vvg") ~ "Noun",
+                                       stringr::str_detect(pos, "vvn") ~ "Noun",
+                                       stringr::str_detect(pos, "nn") ~ "Noun",
+                                       stringr::str_detect(pos, "np") ~ "Noun",
+                                       stringr::str_detect(pos, "vv") ~ "Verb",
+                                       stringr::str_detect(pos, "jj") ~ "Adjective",
+                                       TRUE ~ "other"),
+                control = ifelse(control == "test", "Xmuch", control)) %>%
+  dplyr::rename(Emotionality = emo,
+                Polarity = polarity,
+                POS = pos,
+                Variety = variety,
+                Status = element,
+                Data = control,
+                X = x)
+# inspect
+head(xmuch)
+```
+
+
+
+* check pos
+
+```{r}
+table(xmuch$POS)
+```
+
+* check Status * Polarity
+
+```{r}
+ftable(xmuch$Status, xmuch$Polarity)
+```
+
+# Save data to disc{-}
+
+```{r}
+base::saveRDS(xmuch, file = here::here("data", "xmuch.rda"))
+write.table(xmuch, here::here("data", "xmuch.txt"), sep = "\t", row.names = F)
+```
+
+
+# Outro
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

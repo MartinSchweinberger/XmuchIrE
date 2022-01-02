@@ -176,7 +176,7 @@ posire
 
 ```{r}
 xmdtb <- xmuch %>%
-  dplyr::select(Variety, X, POS, Emotionality, Polarity, Status) %>%
+  dplyr::select(Variety, X, POS, Emotionality, Polarity, Status, Data) %>%
   dplyr::rename(word = X)
 # inspect
 head(xmdtb)
@@ -209,7 +209,7 @@ RQ: Does the emotionality of words in the test data (in the x-much construction)
 
 ```{r}
 emo_tb1 <- xmdtb %>%
-  dplyr::group_by(Emotionality, Status) %>%
+  dplyr::group_by(Emotionality, Data) %>%
   dplyr::summarise(Frequency = n())
 # inspect
 head(emo_tb1)
@@ -219,7 +219,7 @@ Perform x2-test
 
 ```{r}
 emo_x2 <- emo_tb1 %>%
-  tidyr::spread(Status, Frequency) %>%
+  tidyr::spread(Data, Frequency) %>%
   as.matrix()
 rn<- emo_x2[,1]
 emo_x2 = emo_x2[, 2:3]
@@ -379,7 +379,11 @@ Prepare data
 ```{r}
 pol_tb1 <- xmuch %>%
   dplyr::group_by(Polarity, Status) %>%
-  dplyr::summarise(Frequency = n())
+  dplyr::summarise(Frequency = n()) %>%
+  dplyr::ungroup() %>%
+  tidyr::spread(Status, Frequency) %>%
+  dplyr::mutate(phrase = replace_na(phrase, 0)) %>%
+  tidyr::gather(Status, Frequency, phrase:word)
 # inspect
 pol_tb1
 ```
@@ -431,7 +435,7 @@ Prepare data
 
 ```{r}
 pol_tb2 <- xmuch %>%
-  dplyr::filter(Status == "Xmuch") %>%
+  dplyr::filter(Data == "Xmuch") %>%
   dplyr::group_by(Polarity, Variety) %>%
   dplyr::summarise(Frequency = n())
 # inspect
@@ -578,16 +582,16 @@ tabulation
 
 ```{r}
 pos_tab <- xmuch %>%
-  dplyr::group_by(Variety, Status, pos) %>%
-  dplyr::summarise(Frequency = n()) %>%
-  dplyr::group_by(Variety, Status) %>%
-  dplyr::mutate(Total = sum(Frequency)) %>%
+  dplyr::group_by(Variety, Data, POS) %>%
+  dplyr::summarise(Freq= n()) %>%
+  dplyr::group_by(Variety, Data) %>%
+  dplyr::mutate(Total = sum(Freq)) %>%
   dplyr::rowwise() %>%
-  dplyr::mutate(Percent = round(Frequency/Total*100, 1),
-                Frequency = paste0(Frequency, " (", Percent, ")")) %>%
+  dplyr::mutate(Percent = round(Freq/Total*100, 1),
+                Frequency = paste0(Freq, " (", Percent, ")")) %>%
   dplyr::ungroup() %>%
-  dplyr::select(-Frequency, -Total, -Percent) %>%
-  tidyr::spread(pos, Frequency)
+  dplyr::select(-Freq, -Total, -Percent) %>%
+  tidyr::spread(POS, Frequency)
 # inspect
 pos_tab
 ```
@@ -602,7 +606,7 @@ Prepare data
 
 ```{r}
 pos_tb1 <- xmuch %>%
-  dplyr::group_by(POS, Status) %>%
+  dplyr::group_by(POS, Data) %>%
   dplyr::summarise(Frequency = n())
 # inspect
 pos_tb1
@@ -612,7 +616,7 @@ Perform x2-test
 
 ```{r}
 pos_x2 <- pos_tb1 %>%
-  tidyr::spread(Status, Frequency) %>%
+  tidyr::spread(Data, Frequency) %>%
   as.matrix()
 # inspect
 pos_x2
@@ -656,7 +660,7 @@ Prepare data
 
 ```{r}
 pos_tb2 <- xmuch %>%
-  dplyr::filter(Status == "Xmuch") %>%
+  dplyr::filter(Data == "Xmuch") %>%
   dplyr::group_by(POS, Variety) %>%
   dplyr::summarise(Frequency = n())
 # inspect
@@ -706,7 +710,7 @@ process data
 
 ```{r}
 pos_tb2 <- xmuch %>%
-  dplyr::group_by(POS, Variety, Status) %>%
+  dplyr::group_by(POS, Variety, Data) %>%
   dplyr::summarise(Frequency = n())
 # inspect
 pos_tb2
@@ -716,7 +720,7 @@ perform CFA
 
 ```{r}
 configs <- pos_tb2 %>%
-  dplyr::select(Variety, POS, Status)
+  dplyr::select(Variety, POS, Data)
 counts = pos_tb2$Frequency
 cfa::cfa(configs, counts)
 ```
@@ -804,14 +808,14 @@ RQ: Regardless of variety, are there words that are significantly attracted by t
 
 ```{r}
 wordcat_tb <- xmuch %>%
-  dplyr::group_by(Status, X) %>%
+  dplyr::group_by(Data, X) %>%
   dplyr::mutate(Frequency = n()) %>%
-  dplyr::mutate(x = ifelse(Frequency < 2, "other", x)) %>%
+  dplyr::mutate(X = ifelse(Frequency < 2, "other", X)) %>%
   dplyr::ungroup() %>%
-  dplyr::group_by(x, Status) %>%
+  dplyr::group_by(X, Data) %>%
   dplyr::summarise(Frequency = n())
 configs <- wordcat_tb %>%
-  dplyr::select(Status, X)
+  dplyr::select(Data, X)
 counts = wordcat_tb$Frequency
 cfa::cfa(configs, counts)
 
@@ -853,10 +857,10 @@ RQ: Do the words that are significantly attracted by the x-much construction dif
 
 ```{r}
 wordcat_tb <- xmuch %>%
-  dplyr::filter(Status == "Xmuch") %>%
-  dplyr::group_by(Variety, x) %>%
+  dplyr::filter(Data == "Xmuch") %>%
+  dplyr::group_by(Variety, X) %>%
   dplyr::mutate(Frequency = n()) %>%
-  dplyr::mutate(x = ifelse(Frequency < 2, "other", x)) %>%
+  dplyr::mutate(X = ifelse(Frequency < 2, "other", X)) %>%
   dplyr::ungroup() %>%
   dplyr::group_by(X, Variety) %>%
   dplyr::summarise(Frequency = n())
@@ -885,7 +889,7 @@ RQ: Do the words that are significantly attracted by the x-much construction dif
 
 ```{r}
 wordcat_tb <- xmuch %>%
-  dplyr::group_by(Status, Variety, X) %>%
+  dplyr::group_by(Data, Variety, X) %>%
   dplyr::mutate(Frequency = n()) %>%
   dplyr::mutate(X = ifelse(Frequency < 2, "other", X)) %>%
   dplyr::ungroup() %>%

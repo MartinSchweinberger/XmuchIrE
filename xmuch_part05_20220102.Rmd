@@ -135,9 +135,9 @@ tabulation
 
 ```{r}
 emo_tab <- xmuch %>%
-  dplyr::group_by(Variety, Status, Polarity) %>%
+  dplyr::group_by(Variety, Data, Polarity) %>%
   dplyr::summarise(Freq = n()) %>%
-  dplyr::group_by(Variety, Status) %>%
+  dplyr::group_by(Variety, Data) %>%
   dplyr::mutate(Total = sum(Freq)) %>%
   dplyr::rowwise() %>%
   dplyr::mutate(Percent = round(Freq/Total*100, 1),
@@ -153,15 +153,15 @@ Calculate totals
 
 ```{r}
 # au
-austot <- 11+63+20+952+0+63
-negau <- round(74/austot*100, 1)
-nonau <- round(972/austot*100, 1)
-posau <- round(63/austot*100, 1)
+austot <- 26+904+70+51+49+9
+negau <- round(77/austot*100, 1)
+nonau <- round(953/austot*100, 1)
+posau <- round(79/austot*100, 1)
 # ire
-iretot <- 4+37+6+929+0+57
-negire <- round(41/iretot*100, 1)
-nonire <- round(935/iretot*100, 1)
-posire <- round(57/iretot*100, 1)
+iretot <- 26+927+47+14+18+1
+negire <- round(40/iretot*100, 1)
+nonire <- round(945/iretot*100, 1)
+posire <- round(48/iretot*100, 1)
 # results
 negau
 nonau
@@ -378,12 +378,8 @@ Prepare data
 
 ```{r}
 pol_tb1 <- xmuch %>%
-  dplyr::group_by(Polarity, Status) %>%
-  dplyr::summarise(Frequency = n()) %>%
-  dplyr::ungroup() %>%
-  tidyr::spread(Status, Frequency) %>%
-  dplyr::mutate(phrase = replace_na(phrase, 0)) %>%
-  tidyr::gather(Status, Frequency, phrase:word)
+  dplyr::group_by(Polarity, Data) %>%
+  dplyr::summarise(Frequency = n())
 # inspect
 pol_tb1
 ```
@@ -392,7 +388,7 @@ Perform x2-test
 
 ```{r}
 pol_x2 <- pol_tb1 %>%
-  tidyr::spread(Status, Frequency) %>%
+  tidyr::spread(Data, Frequency) %>%
   as.matrix()
 # inspect
 pol_x2
@@ -482,7 +478,7 @@ assocplot(pol_x22)
 
 ```{r}
 pol_tb1 <- xmuch %>%
-  dplyr::group_by(Polarity, Variety, Status) %>%
+  dplyr::group_by(Polarity, Variety, Data) %>%
   dplyr::summarise(Frequency = n())
 # inspect
 pol_tb1
@@ -490,7 +486,7 @@ pol_tb1
 
 ```{r}
 configs <- pol_tb1 %>%
-  dplyr::select(Variety, Polarity, Status)
+  dplyr::select(Variety, Polarity, Data)
 counts = pol_tb1$Frequency
 cfa::cfa(configs, counts)
 ```
@@ -893,10 +889,10 @@ wordcat_tb <- xmuch %>%
   dplyr::mutate(Frequency = n()) %>%
   dplyr::mutate(X = ifelse(Frequency < 2, "other", X)) %>%
   dplyr::ungroup() %>%
-  dplyr::group_by(X, Variety, Status) %>%
+  dplyr::group_by(X, Variety, Data) %>%
   dplyr::summarise(Frequency = n())
 configs <- wordcat_tb %>%
-  dplyr::select(Status, Variety, X)
+  dplyr::select(Data, Variety, X)
 counts = wordcat_tb$Frequency
 cfa::cfa(configs, counts)
 ```

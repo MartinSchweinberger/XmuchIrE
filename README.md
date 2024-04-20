@@ -6,7 +6,7 @@ Schweinberger, M. and Patrcia Ronan (fc). *Boring much? Semantic determinants of
 
 ## Contents:
 
-1. Processed and de-anonymized data is available in the **data** sub-folder (in both rda and xlsx formats). Please note that the original raw data couldn't be shared due to copyright issues. The raw data for this study was taken from the offline version of the *Corpus of Global Web-Based English* (GloWbE) [International Corpus of English](https://www.english-corpora.org/glowbe/) (see Greenbaum 1991).
+1. Processed and de-anonymized data is available in the **data** sub-folder (in both rda and xlsx formats). Please note that the original raw data couldn't be shared due to copyright issues. The raw data for this study was taken from the offline version of the  [*Corpus of Global Web-Based English* (GloWbE)](https://www.english-corpora.org/glowbe/) (see Davies 2015).
 
 2. The **R notebooks** (*AmpHKPhiE_Part01.Rmd* and *AmpHKPhiE_Part02.Rmd*) and the **rendered html versions of the R notebooks** (*AmpHKPhiE_Part01.html* and *AmpHKPhiE_Part02.html*).
 
@@ -35,7 +35,7 @@ To enhance transparency and reproducibility, we've created an [interactive Jupyt
 
 ## References
 
-Greenbaum, S. (1991). ICE: The international corpus of English. *English Today*, 7(4), 3-7. https://doi.org/10.1017/S0266078400005836
+Davies, M. (2014). [*Introducing the 1.9 Billion Word Global Web-Based English Corpus* (GloWbE)](https://21centurytext.wordpress.com/introducing-the-1-9-billion-word-global-web-based-english-corpus-glowbe/). *The 21st Century Text*, Vol. 5. 
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/WE_AmpAdj_AsianEnglishes_iA/main?labpath=AmpHKPhiE_Part02_cb.ipynb)
 

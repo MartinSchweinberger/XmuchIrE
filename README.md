@@ -8,7 +8,7 @@ Schweinberger, M. and Patrcia Ronan (fc). *Boring much? Semantic determinants of
 
 1. Processed and de-anonymized data is available in the **data** sub-folder (in both rda and xlsx formats). Please note that the original raw data couldn't be shared due to copyright issues. The raw data for this study was taken from the offline version of the  [*Corpus of Global Web-Based English* (GloWbE)](https://www.english-corpora.org/glowbe/) (see Davies 2015).
 
-2. The **R notebooks** (*AmpHKPhiE_Part01.Rmd* and *AmpHKPhiE_Part02.Rmd*) and the **rendered html versions of the R notebooks** (*AmpHKPhiE_Part01.html* and *AmpHKPhiE_Part02.html*).
+2. The **R notebooks** (*xmuch_part01_postagging.Rmd*, *xmuch_part02_dataprocessing1.Rmd*, *xmuch_part03_dataprocessing2.Rmd*, *xmuch_part04_dataprocessing3.Rmd*, *xmuch_part05_statisticalanalysis.Rmd*, and *xmuch_statanalysis.Rmd*) and the **rendered pdf version of the R notebook** (*xmuch_statanalysis.pdf*).
 
 3. All figures (in their raw format) used in the publication can be found in the **images** sub-folder.
 

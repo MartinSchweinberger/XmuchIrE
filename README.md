@@ -6,7 +6,7 @@ Schweinberger, M. and Patrcia Ronan (fc). *Boring much? Semantic determinants of
 
 ## Contents:
 
-1. Processed and de-anonymized data is available in the **data** sub-folder (in both rda and xlsx formats). Please note that the original raw data couldn't be shared due to copyright issues. The raw data for this study was taken from the freely available Hong Kong, Phillippine, and Indian components of the [International Corpus of English](https://www.ice-corpora.uzh.ch/en.html) (see Greenbaum 1991).
+1. Processed and de-anonymized data is available in the **data** sub-folder (in both rda and xlsx formats). Please note that the original raw data couldn't be shared due to copyright issues. The raw data for this study was taken from the offline version of the *Corpus of Global Web-Based English* (GloWbE) [International Corpus of English](https://www.english-corpora.org/glowbe/) (see Greenbaum 1991).
 
 2. The **R notebooks** (*AmpHKPhiE_Part01.Rmd* and *AmpHKPhiE_Part02.Rmd*) and the **rendered html versions of the R notebooks** (*AmpHKPhiE_Part01.html* and *AmpHKPhiE_Part02.html*).
 

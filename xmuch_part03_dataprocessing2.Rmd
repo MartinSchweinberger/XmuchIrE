@@ -1,0 +1,343 @@
+---
+title: "X-much CXN in IrE - Part 3: Data processing"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on the use of the X-much construction in Irish English. 
+
+This part of the analysis performs the data processing and extracting examples of the X-much construction.
+
+# Session preparation
+
+Install packages
+
+```{r install, message = F, warning = F}
+install.packages("tidyverse")
+install.packages("here")
+install.packages("readxl")
+install.packages("flextable")
+install.packages("quanteda")
+install.packages("tidytext")
+install.packages("cfa")
+```
+
+
+loading packages, setting options, and defining paths.
+
+```{r xmprep_2_01}
+# load packages
+library(tidyverse)
+library(here)
+library(readxl)
+library(flextable)
+library(quanteda)
+library(tidytext)
+# setting options
+options(stringsAsFactors = F)
+```
+
+## Cleaning function
+
+```{r}
+
+clean_kwic <- function(kwics){
+  kwics <- kwics %>%
+  dplyr::mutate(variety = stringr::str_replace_all(docname, ".*_([a-z]{2,2})_.*", "\\1"),
+                clean_content = paste0(pre, " << ", keyword, " >> ", post)) %>%
+  dplyr::mutate(clean_content = stringr::str_remove_all(clean_content, 
+                                                        "\\/[@%]{0,1}[:alnum:]{1,4}[@%]{0,1}_{0,1}[@%]{0,1}[:alnum:]{0,4}[@%]{0,1}_{0,1}[@%]{0,1}[:alnum:]{0,4}[@%]{0,1}")) %>%
+  dplyr::mutate(clean_content = stringr::str_remove_all(clean_content, "@")) %>%
+  dplyr::mutate(clean_content = stringr::str_remove_all(clean_content, "%")) %>%
+  dplyr::mutate(clean_content = stringr::str_squish(clean_content)) %>%
+    dplyr::select(-to, -from, -pattern) %>%
+  dplyr::filter(stringr::str_detect(keyword, "^much/"),
+                stringr::str_detect(clean_content, " [:alnum:]{1,2} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " [VERYvery]{4,4} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " [SOso]{2,} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " too <<", negate = TRUE),
+                stringr::str_detect(clean_content, " [Pp]retty <<", negate = TRUE),
+                stringr::str_detect(clean_content, " [Hh]ow <<", negate = TRUE),
+                stringr::str_detect(clean_content, " [Nn]ot {0,1}<<", negate = TRUE),
+                stringr::str_detect(clean_content, " bit <<", negate = TRUE),
+                stringr::str_detect(clean_content, " [a-z]{0,}n['|o]t [a-z]{1,} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " out <<", negate = TRUE),
+                stringr::str_detect(clean_content, " have <<", negate = TRUE),
+                stringr::str_detect(clean_content, " were <<", negate = TRUE),
+                stringr::str_detect(clean_content, " becoming <<", negate = TRUE),
+                stringr::str_detect(clean_content, " write <<", negate = TRUE),
+                stringr::str_detect(clean_content, " hurt <<", negate = TRUE),
+                stringr::str_detect(clean_content, " London <<", negate = TRUE),
+                stringr::str_detect(clean_content, " attract <<", negate = TRUE),
+                stringr::str_detect(clean_content, " get[ting]{0,4} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " that <<", negate = TRUE),
+                stringr::str_detect(clean_content, " this .{0,3}<<", negate = TRUE),
+                stringr::str_detect(clean_content, " [Aafter]{5,5} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " pretty <<", negate = TRUE),
+                stringr::str_detect(clean_content, " do[esing]{0,3} <<", negate = TRUE),
+                stringr::str_detect(clean_content, " without <<", negate = TRUE),
+                stringr::str_detect(clean_content, " ' s <<", negate = TRUE),
+                stringr::str_detect(clean_content, " n't <<", negate = TRUE),
+                stringr::str_detect(clean_content, "How @ <<", negate = TRUE),
+                stringr::str_detect(clean_content, " >> [:alnum:]{1,} ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> about ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> faster ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> confusion ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> anyway ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> later ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> [MOREmore]{4,4} ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> [LESSless]{4,4} ", negate = TRUE),
+                stringr::str_detect(clean_content, " >> [WORSEworse]{5,5} ", negate = TRUE),
+                stringr::str_detect(clean_content, " >>$", negate = TRUE),
+                stringr::str_detect(clean_content, " >> [:alnum:]{0,} {0,1}\\?/\\? | >> [:alnum:]{0,} {0,1}\\!/\\! | >> [:alnum:]{0,} {0,1}\\./\\. | >> [:alnum:]{0,} {0,1}\\;/\\; ")
+                )
+}
+```
+
+
+Load and clean data
+
+## Clean data{-}
+
+
+```{r}
+muchkwic01  <- base::readRDS(file = here::here("data/kwics", "kwic_much_01.rda")) 
+mck01 <- clean_kwic(kwics = muchkwic01)
+# inspect data
+head(mck01)
+```
+
+```{r}
+muchkwic02  <- base::readRDS(file = here::here("data/kwics", "kwic_much_02.rda")) 
+mck02 <- clean_kwic(kwics = muchkwic02)
+# inspect data
+head(mck02)
+```
+
+```{r}
+muchkwic03  <- base::readRDS(file = here::here("data/kwics", "kwic_much_03.rda")) 
+mck03 <- clean_kwic(kwics = muchkwic03)
+# inspect data
+head(mck03)
+```
+
+```{r}
+muchkwic04  <- base::readRDS(file = here::here("data/kwics", "kwic_much_04.rda")) 
+mck04 <- clean_kwic(kwics = muchkwic04)
+# inspect data
+head(mck04)
+```
+
+
+```{r}
+muchkwic05  <- base::readRDS(file = here::here("data/kwics", "kwic_much_05.rda")) 
+mck05 <- clean_kwic(kwics = muchkwic05)
+# inspect data
+head(mck05)
+```
+
+
+
+```{r}
+muchkwic06  <- base::readRDS(file = here::here("data/kwics", "kwic_much_06.rda")) 
+mck06 <- clean_kwic(kwics = muchkwic06)
+# inspect data
+head(mck06)
+```
+
+
+
+```{r}
+muchkwic07  <- base::readRDS(file = here::here("data/kwics", "kwic_much_07.rda")) 
+mck07 <- clean_kwic(kwics = muchkwic07)
+# inspect data
+head(mck07)
+```
+
+
+```{r}
+muchkwic08  <- base::readRDS(file = here::here("data/kwics", "kwic_much_08.rda")) 
+mck08 <- clean_kwic(kwics = muchkwic08)
+# inspect data
+head(mck08)
+```
+
+
+```{r}
+muchkwic09  <- base::readRDS(file = here::here("data/kwics", "kwic_much_09.rda")) 
+mck09 <- clean_kwic(kwics = muchkwic09)
+# inspect data
+head(mck09)
+```
+
+
+```{r}
+muchkwic10  <- base::readRDS(file = here::here("data/kwics", "kwic_much_10.rda")) 
+mck10 <- clean_kwic(kwics = muchkwic10)
+# inspect data
+head(mck10)
+```
+
+
+## Combine kwics
+
+```{r}
+mck <- rbind(mck01, mck02, mck03, mck04, mck05, mck06, mck07, mck08, mck09, mck10) %>%
+  dplyr::mutate(id = 1:nrow(.))
+# inspect
+head(mck); nrow(mck); table(mck$keyword)
+```
+
+
+## Tabulation
+
+```{r}
+muchkwic <- rbind(muchkwic01, muchkwic02, muchkwic03, muchkwic04, muchkwic05, 
+             muchkwic06, muchkwic07, muchkwic08, muchkwic09, muchkwic10) %>%
+  dplyr::mutate(id = 1:nrow(.))
+nrow(muchkwic)
+nrow(mck)
+```
+
+```{r}
+
+```
+
+
+## Save data{-}
+
+```{r}
+# save data
+base::saveRDS(mck, file = here::here("data/kwics", "kwics_semiclean.rda"))
+write.table(mck, here::here("data/kwics", "kwics_semiclean.txt"), sep = "\t", row.names = F)
+# load kwics
+cmck  <- mck
+# inspect data
+head(cmck); nrow(cmck)
+```
+
+# Manual check
+
+results of manula check
+
+```{r}
+na <- c("48", "73", "80", "135", "143", "185", "228", "280", "297", "318", 
+        "368", "429", "509", "520", "675") 
+mx <- c("1", "5", "7", "8", "11", "17", "26", "27", "29", "32", "33", "35", 
+        "39", "41", "43", "49", "51", "57", "59", "66", "67", "82", "100", 
+        "101", "105", "113", "115", "119", "131", "136", "137", "138", "142", 
+        "159", "162", "165", "168", "169", "170", "180", "189", "194", "217", 
+        "218", "222", "224", "243", "245", "260", "274", "281", "283", "299", 
+        "305", "313", "315", "316", "317", "327", "332", "341", "345", "346", 
+        "348", "364", "366", "370", "373", "374", "392", "402", "405", "413", 
+        "414", "418", "421", "430", "435", "436", "440", "445", "449", "453", 
+        "454", "455", "461", "467", "469", "480", "486", "491", "495", "501", 
+        "503", "510", "511", "513", "521", "524", "527", "534", "544", "548", 
+        "549", "555", "556", "557", "571", "572", "573", "574", "577", "580", 
+        "590", "603", "604", "605", "618", "623", "635", "639", "642", "657", 
+        "676", "677", "678", "688", "693", "694", "695", "696", "698", "708", 
+        "709", "712", "728", "731", "732", "741", "743", "754", "788", "789", 
+        "790", "792", "835", "837", "846") 
+```
+
+
+
+
+```{r}
+lmck <- cmck %>%
+  dplyr::filter(id %in% mx) %>%
+  dplyr::mutate(PrePosTag = str_remove_all(pre, ".*/"),
+                PrePosTag = stringr::str_squish(PrePosTag),
+                PostPosTag = str_remove_all(post, "^/"),
+                PostPosTag = str_remove_all(PostPosTag, "/.*"),
+                PostPosTag = str_remove_all(stringr::str_squish(PostPosTag), ".* ") ) %>%
+  dplyr::filter(PostPosTag != ".",
+                PostPosTag != ",") %>%
+  dplyr::filter(PostPosTag == "?" | PostPosTag == "!" | PostPosTag == "[:alnum:]{1,}" ) %>%
+  dplyr::mutate(clean_content = stringr::str_replace_all(clean_content, " ([:punct:])/[:punct:] ", " \\1 "),
+                clean_content = stringr::str_replace_all(clean_content, "<\\w{1,2}>", " "),
+                clean_content= stringr::str_squish(clean_content)) %>%
+  dplyr::mutate(x = stringr::str_remove_all(clean_content, " <<.*"),
+                x = stringr::str_remove_all(x, ".* \\. "),
+                x = stringr::str_remove_all(x, ".*\\?"),
+                x = stringr::str_remove_all(x, ".*\\("),
+                x = stringr::str_remove_all(x, ".*\\)"),
+                x = stringr::str_remove_all(x, ".*\\-"),
+                x = stringr::str_remove_all(x, ".*\\!"),
+                x = stringr::str_replace_all(x, fixed("\" "), "qwertz"),
+                x = stringr::str_remove_all(x, ".*qwertz"),
+                x = stringr::str_remove_all(tolower(x), ".*am |.*pm "),
+                x = stringr::str_squish(x)) %>%
+  dplyr::mutate(x = ifelse(stringr::str_detect(x, "glass"), "glass house", x),
+                x = stringr::str_remove_all(x, ",$"),
+                x = ifelse(stringr::str_detect(x, "hominem"), "ad hominem", x),
+                x = stringr::str_remove_all(x, ".* \\, "),
+                x = ifelse(stringr::str_detect(x, "\\.\\.\\.$"), "delusional", 
+                           stringr::str_remove_all(x, ".*\\.\\.\\.")),
+                x = stringr::str_remove_all(x, "[:punct:]"),
+                x = stringr::str_squish(x)) %>%
+  dplyr::mutate(type = stringr::str_remove_all(PrePosTag, "[0-9].*|@.*|_.*"))
+# classify ambigious elements
+nn <- c("hype", "wowser", "01 tubesteak misogynist", "chip on your shoulders", 
+        "glass house", "y2k", "sexual harassment")
+jj <- c("ironic", "arrogant and aggressive", "threatened", "crazy", "patronising", 
+        "delusional")
+vv <- c("generalize")
+lmck <- lmck %>%
+  dplyr::mutate(type = dplyr::case_when(x %in% nn ~ "nn",
+                                        x %in% jj ~ "jj",
+                                        x %in% vv ~ "vv",
+                                        TRUE ~ type)) %>%
+  # add word vs phrase
+  dplyr::mutate(element = ifelse(str_detect(x, " "), "phrase", "word"),
+                variety = ifelse(variety == "au", "Australia", "Ireland"))
+# inspect data
+head(lmck); nrow(lmck)
+```
+
+## Annotate sentiment
+
+```{r emo1, message=F, warning=F}
+# sentiments
+emo <- get_sentiments("nrc") %>%
+  dplyr::filter(sentiment == "positive"| sentiment == "negative")
+wordpos <- emo %>%
+  dplyr::filter(sentiment == "positive") %>%
+  dplyr::pull(word)
+wordneg <- emo %>%
+  dplyr::filter(sentiment == "negative") %>%
+  dplyr::pull(word)
+```
+
+
+```{r emo1, message=F, warning=F}
+lmck <- lmck %>%
+  dplyr::mutate(emo = dplyr::case_when(x %in% wordpos ~ "positive",
+                                       x %in% wordneg ~ "negative",
+                                       TRUE ~ "nonemotional"))
+# inspect
+head(lmck)
+```
+
+
+## Save data to disc{-}
+
+```{r}
+base::saveRDS(lmck, file = here::here("data/kwics", "xmd.rda"))
+```
+
+
+# Outro
+
+```{r}
+sessionInfo()
+```
+
+
+
+
+

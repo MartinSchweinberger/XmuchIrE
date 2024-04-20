@@ -1,0 +1,290 @@
+---
+title: "X-much CXN in IrE - Part 2: Data processing"
+author: "Anonymous"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  word_document
+bibliography: bibliography.bib
+link-citations: yes
+---
+
+This document focuses on the use of the X-much construction in Irish English. 
+
+This part of the analysis performs the data processing and extracting examples of the X-much construction.
+
+# Session preparation
+
+cleaning the workspace, loading packages, setting options, and defining paths.
+
+```{r xmprep_2_01}
+# load packages
+library(tidyverse)
+library(here)
+library(readxl)
+library(flextable)
+library(quanteda)
+# setting options
+options(stringsAsFactors = F)
+# set paths
+cpath <- "D:\\Uni\\Korpora\\Edited\\GloWbe_postagged"
+```
+
+# Extract and process texts from corpus
+
+
+```{r}
+cfiles <- list.files(here::here("data/GloWbe_pos"), pattern = ".rda", full.names = T)
+cfiles <- cfiles[stringr::str_detect(cfiles, "_ie_|_au_")]
+# inspect
+cfiles
+```
+
+load texts
+
+```{r}
+# load texts
+texts <- sapply(cfiles, function(x){
+  filename <- stringr::str_replace_all(x, ".*/(.*?).rda", "\\1")
+  x <- base::readRDS(x, "rb")
+  x <- paste0(x, collapse = " ")
+  x <- str_split(stringr::str_replace_all(x, "##", "~~~##"), "~~~")
+  x <- unlist(x)
+})
+# inspect data
+str(texts)
+```
+
+Clean data
+
+```{r xm_2_05, eval=T}
+# simplify names
+names(texts) <- stringr::str_replace_all(names(texts), ".*/(.*?).rda", "\\1")
+# check number of elements with each file
+idx <- sapply(texts, function(x) x <- length(x))
+# repeat file names as many times as there are elements in each file.
+files <- rep(names(texts), idx)
+# convert into data frame
+textdf <- texts %>%
+  unlist() %>%
+  as.vector() %>%
+  as.data.frame() %>%
+  dplyr::mutate(file = files) %>%
+  dplyr::rename(doc_id = colnames(.)[1],
+                text = colnames(.)[1]) %>%
+  dplyr::mutate(subfile = stringr::str_extract(text, "##.*?\\W"),
+                id = 1:nrow(.)) %>%
+  tidyr::drop_na()
+# remove texts from memory
+texts <- NULL
+# inspect
+head(textdf)
+```
+
+
+# Create control corpus
+
+```{r}
+ccorpus <- textdf %>%
+  sample_n(1000)
+# save to disc
+base::saveRDS(ccorpus, file = here::here("data", "ccorpus.rda"))
+# inpsect
+nrow(ccorpus)
+```
+
+
+# Create test corpus
+
+
+```{r xm_2_05, eval=T, meassage = F, warning=F}
+textc <- textdf %>%
+  quanteda::corpus()
+# extract names
+nms <- stringr::str_remove_all(paste0(textdf$file, "_", textdf$subfile), "/")
+# save textdf
+base::saveRDS(textdf, file = here::here("data", "textdf.rda"))
+# remove texts from memory
+textdf <- NULL
+# tokenize text corpus
+toks <- quanteda::tokens(textc, what = "fastestword")
+# add names 
+names(toks) <- nms
+# inspect
+str(toks)
+```
+
+## Table with words per document
+
+```{r tb1, message=F, warning=F}
+words <- sapply(toks, function(x){
+  x <- stringr::str_remove_all(x, "<.*?>")
+  x <- stringr::str_remove_all(x, "\\W")
+  x <- x[x != ""]
+  x <- length(x)
+})
+tb1 <- data.frame(names(words), words) %>%
+  dplyr::rename(text = colnames(.)[1])
+# save to disc
+base::saveRDS(tb1, file = here::here("tables", "tb1.rda"))
+# inspect
+head(tb1)
+```
+
+
+## Concordancing of *much*
+
+Split toks and concordancing
+
+```{r}
+# split
+toks01 <- toks[1:25000]
+# kwic
+kwic_much_01 <- quanteda::kwic(toks01, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_01, file = here::here("data/kwics", "kwic_much_01.rda"))
+# remove texts from memory
+toks01 <- NULL
+kwic_much_01 <- NULL
+```
+
+```{r}
+# split
+toks02 <- toks[25001:50000]
+# kwic
+kwic_much_02 <- quanteda::kwic(toks02, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_02, file = here::here("data/kwics", "kwic_much_02.rda"))
+# remove texts from memory
+toks02 <- NULL
+kwic_much_02 <- NULL
+```
+
+```{r}
+# split
+toks03 <- toks[50001:75000]
+# kwic
+kwic_much_03 <- quanteda::kwic(toks03, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_03, file = here::here("data/kwics", "kwic_much_03.rda"))
+# remove texts from memory
+toks03 <- NULL
+kwic_much_03 <- NULL
+```
+
+```{r}
+# split
+toks04 <- toks[75001:100000]
+# kwic
+kwic_much_04 <- quanteda::kwic(toks04, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_04, file = here::here("data/kwics", "kwic_much_04.rda"))
+# remove texts from memory
+toks04 <- NULL
+kwic_much_04 <- NULL
+```
+
+```{r}
+# split
+toks05 <- toks[100001:125000]
+# kwic
+kwic_much_05 <- quanteda::kwic(toks05, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_05, file = here::here("data/kwics", "kwic_much_05.rda"))
+# remove texts from memory
+toks05 <- NULL
+kwic_much_05 <- NULL
+```
+
+```{r}
+# split
+toks06 <- toks[125001:150000]
+# kwic
+kwic_much_06 <- quanteda::kwic(toks06, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_06, file = here::here("data/kwics", "kwic_much_06.rda"))
+# remove texts from memory
+toks06 <- NULL
+kwic_much_06 <- NULL
+```
+
+```{r}
+ # split
+toks07 <- toks[150001:175000]
+# kwic
+kwic_much_07 <- quanteda::kwic(toks07, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_07, file = here::here("data/kwics", "kwic_much_07.rda"))
+# remove texts from memory
+toks07 <- NULL
+kwic_much_07 <- NULL
+```
+
+```{r}
+# split 
+toks08 <- toks[175001:200000]
+# kwic
+kwic_much_08 <- quanteda::kwic(toks08, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_08, file = here::here("data/kwics", "kwic_much_08.rda"))
+# remove texts from memory
+toks08 <- NULL
+kwic_much_08 <- NULL
+```
+
+```{r}
+# split
+toks09 <- toks[200001:225000]
+# kwic
+kwic_much_09 <- quanteda::kwic(toks09, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_09, file = here::here("data/kwics", "kwic_much_09.rda"))
+# remove texts from memory
+toks09 <- NULL
+kwic_much_09 <- NULL
+```
+
+```{r}
+# split
+toks10 <- toks[225001:length(toks)]
+# kwic
+kwic_much_10 <- quanteda::kwic(toks10, window = 20, pattern = "much",
+                       valuetype = "regex", case_insensitive = F) %>%
+  as.data.frame()
+# save to disc
+base::saveRDS(kwic_much_10, file = here::here("data/kwics", "kwic_much_10.rda"))
+# remove texts from memory
+toks10 <- NULL
+kwic_much_10 <- NULL
+```
+
+## Extract session information{-}
+
+```{r}
+sessionInfo()
+```
+
+
+***
+
+The END
+
+***
+
